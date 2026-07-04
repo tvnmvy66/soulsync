@@ -1,16 +1,77 @@
-import { Socket } from "socket.io";
+import type { Socket } from "socket.io";
+import { clerkClient } from "@clerk/express";
+import { getOrCreateUser } from "../services/user.services";
+import { appendMessage, getHistory } from "../services/message.services";
 import { generateResponse } from "../services/responses.services";
-import { type ChatMessage } from "../types/chat";
+import { isPersonaId } from "../types/persona";
+import type {
+  IncomingChatPayload,
+  JoinPayload,
+  OutgoingChatPayload,
+} from "../types/chat";
+
+async function resolveUser(socket: Socket) {
+  if (socket.data.user) return socket.data.user;
+
+  const clerkUser = await clerkClient.users.getUser(socket.data.clerkId);
+  const user = await getOrCreateUser({
+    clerkId: clerkUser.id,
+    name:
+      `${clerkUser.firstName ?? ""} ${clerkUser.lastName ?? ""}`.trim() ||
+      "Anonymous",
+    email: clerkUser.emailAddresses[0]?.emailAddress ?? "",
+    avatar: clerkUser.imageUrl,
+  });
+
+  socket.data.user = user;
+  return user;
+}
+
+function roomFor(clerkId: string, personaId: string) {
+  return `${clerkId}:${personaId}`;
+}
+
+function emitToRoom(socket: Socket, room: string, payload: OutgoingChatPayload) {
+  socket.nsp.to(room).emit("message", payload);
+}
 
 export function chatEvents(socket: Socket) {
-  socket.on("chat-message", async (payload: ChatMessage) => {
-    console.log(`${socket.id} - ${payload.persona} : ${payload.message}`);
+  
+  socket.on("join", ({ personaId }: JoinPayload) => {
+    if (!isPersonaId(personaId)) return;
+    socket.join(roomFor(socket.data.clerkId, personaId));
+  });
+
+  socket.on("message", async (payload: IncomingChatPayload) => {
+    const { personaId, content } = payload ?? {};
+
+    if (!isPersonaId(personaId) || !content?.trim()) {
+      socket.emit("chat-error", "Invalid message payload.");
+      return;
+    }
+
+    const room = roomFor(socket.data.clerkId, personaId);
+    
+    socket.join(room);
+
+    console.log(`${socket.id} - ${personaId}: ${content}`);
+
     try {
-      const res = await generateResponse(payload);
-      socket.emit("chat-response", res);
+      const user = await resolveUser(socket);
+
+      const userMessage = await appendMessage(user._id, personaId, "user", content.trim());
+      
+      const history = await getHistory(user._id, personaId);
+      const replyContent = await generateResponse(personaId, history);
+
+      const assistantMessage = await appendMessage(user._id, personaId, "assistant", replyContent);
+      emitToRoom(socket, room, { personaId, message: assistantMessage });
     } catch (error: any) {
       console.error("Error generating response:", error.message);
-      socket.emit("chat-error", error.message || "An error occurred while generating the response.");
+      socket.emit(
+        "chat-error",
+        error.message || "An error occurred while generating the response."
+      );
     }
   });
 }

@@ -19,6 +19,8 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@clerk/backend": "^3.10.0",
+    "@clerk/express": "^2.1.35",
     "@types/express": "^5.0.6",
     "body-parser": "^2.3.0",
     "bson": "^7.3.1",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Send, Sparkles } from "lucide-react";
@@ -35,14 +36,21 @@ export function ChatBox() {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
 
+  const { getToken } = useAuth();
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Connect the socket once for the lifetime of the chat view.
+  // Connect the socket once for the lifetime of the chat view. The effect
+  // callback itself stays synchronous — useEffect can't take an async
+  // function directly, since a Promise return breaks React's cleanup
+  // mechanism. connectSocket takes getToken itself and calls it fresh
+  // before every (re)connection attempt, so we don't need to await
+  // anything here.
   useEffect(() => {
-    connectSocket();
+    connectSocket(getToken);
     return () => disconnectSocket();
-  }, []);
+  }, [getToken]);
 
   // Join the persona's room and pull its history whenever selection changes.
   useEffect(() => {

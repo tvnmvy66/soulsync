@@ -1,5 +1,26 @@
 import * as mongoose from "mongoose";
 
+const chatMessageSchema = new mongoose.Schema(
+  {
+    role: {
+      type: String,
+      enum: ["user", "assistant"],
+      required: true,
+    },
+
+    message: {
+      type: String,
+      required: true,
+    },
+
+    timestamp: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: true }
+);
+
 const messageSchema = new mongoose.Schema(
   {
     user: {
@@ -14,31 +35,14 @@ const messageSchema = new mongoose.Schema(
       required: true,
     },
 
-    messages: [
-      {
-        role: {
-          type: String,
-          enum: ["user", "assistant"],
-          required: true,
-        },
-
-        message: {
-          type: String,
-          required: true,
-        },
-
-        timestamp: {
-          type: Date,
-          default: Date.now,
-        },
-      },
-    ],
+    messages: [chatMessageSchema],
   },
   {
     timestamps: true,
   }
 );
 
-export type Message = mongoose.InferSchemaType<typeof messageSchema>;
+messageSchema.index({ user: 1, persona: 1 }, { unique: true });
 
+export type MessageDoc = mongoose.InferSchemaType<typeof messageSchema>;
 export const Message = mongoose.model("Message", messageSchema);

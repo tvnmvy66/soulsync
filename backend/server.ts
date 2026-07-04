@@ -1,26 +1,29 @@
 import "dotenv/config";
 import http from "http";
 import { Server } from "socket.io";
-
 import app from "./app";
-import { initializeSocket } from "./socket";
-import connectdb from "./config/db"
+import connectDB from "./config/db";
+import { initializeSocket } from "./socket/index";
 
-await connectdb();
+const PORT = process.env.PORT || 4000;
 
-const PORT = process.env.PORT || 3000;
+async function main() {
+  await connectDB();
 
-const server = http.createServer(app);
+  const httpServer = http.createServer(app);
 
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
-  },
-});
+  const io = new Server(httpServer, {
+    cors: {
+      origin: process.env.CLIENT_ORIGIN,
+      credentials: true,
+    },
+  });
 
-initializeSocket(io);
+  initializeSocket(io);
 
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+  httpServer.listen(PORT, () => {
+    console.log(`🚀 Server listening on port ${PORT}`);
+  });
+}
+
+main();

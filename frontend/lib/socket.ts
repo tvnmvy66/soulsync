@@ -26,9 +26,19 @@ socket.on("message", ({ personaId, message }) => {
   useChatStore.getState().addMessage(personaId, message);
 });
 
-export function connectSocket() {
+export function connectSocket(getToken: () => Promise<string | null>) {
   if (socket.connected) return;
   useChatStore.getState().setSocketStatus("connecting");
+
+  // socket.auth as a function is re-invoked before every connection
+  // attempt (including automatic reconnects), so this always sends a
+  // fresh Clerk token instead of one that may have expired by the time
+  // a reconnect happens.
+  socket.auth = async (cb) => {
+    const token = await getToken();
+    cb({ token });
+  };
+
   socket.connect();
 }
 
