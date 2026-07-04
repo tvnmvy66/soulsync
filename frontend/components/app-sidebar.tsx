@@ -38,16 +38,12 @@ import {
 } from "lucide-react";
 
 import { useChatStore } from "@/stores/chat-store";
-
-const personas = [
-  { id: "piyush-garg", name: "Piyush Garg", tagline: "Web Dev Mentor", avatar: "/piyush-garg.jpg" },
-  { id: "hitesh-choudhary", name: "Hitesh Choudhary", tagline: "Coding Educator", avatar: "/hitesh-choudhary.jpg" },
-];
+import { PERSONA_LIST } from "@/lib/personas";
 
 export function AppSidebar() {
   const { isSignedIn, user } = useUser();
   const { openUserProfile } = useClerk();
-  
+
   const selectedPersonaId = useChatStore((s) => s.selectedPersonaId);
   const setSelectedPersona = useChatStore((s) => s.setSelectedPersona);
 
@@ -87,7 +83,7 @@ export function AppSidebar() {
           </p>
 
           <div className="flex flex-col gap-1">
-            {personas.map((persona) => (
+            {PERSONA_LIST.map((persona) => (
               <Button
                 key={persona.id}
                 variant="ghost"

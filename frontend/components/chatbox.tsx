@@ -1,39 +1,57 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Send, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useChatStore } from "@/stores/chat-store";
+import { useChatStore, type Message } from "@/stores/chat-store";
+import { getPersona } from "@/lib/personas";
+import {
+  connectSocket,
+  disconnectSocket,
+  joinPersonaRoom,
+  sendSocketMessage,
+} from "@/lib/socket";
 
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-}
+// Stable reference so the selector below never returns a "new" empty array
+// on renders where there's no persona/history yet — returning a fresh []
+// literal every call makes Zustand think the snapshot changed every time,
+// which is what caused the infinite update loop.
+const EMPTY_MESSAGES: Message[] = [];
 
-interface ChatBoxProps {
-  persona?: {
-    id: string;
-    name: string;
-    avatar: string;
-  };
-}
-
-export function ChatBox({ persona }: any) {
-  const { state } = useSidebar(); // "expanded" | "collapsed"
-  const messages = useChatStore((s) => s.messagesByPersona[persona ?? ""] ?? []);
+// No props needed — the selected persona lives in the Zustand store, so
+// this component is always in sync with the sidebar without prop drilling.
+export function ChatBox() {
+  const selectedPersonaId = useChatStore((s) => s.selectedPersonaId);
+  const messages = useChatStore((s) =>
+    selectedPersonaId ? s.messagesByPersona[selectedPersonaId] ?? EMPTY_MESSAGES : EMPTY_MESSAGES
+  );
   const addMessage = useChatStore((s) => s.addMessage);
+  const fetchMessageHistory = useChatStore((s) => s.fetchMessageHistory);
+  const isHistoryLoading = useChatStore((s) => s.isHistoryLoading);
+  const hasHydrated = useChatStore((s) => s.hasHydrated);
+
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const hasHydrated = useChatStore((s) => s.hasHydrated);
-  if (!hasHydrated) return null; // or a skeleton
-  // Auto-scroll to the latest message
+
+  // Connect the socket once for the lifetime of the chat view.
+  useEffect(() => {
+    connectSocket();
+    return () => disconnectSocket();
+  }, []);
+
+  // Join the persona's room and pull its history whenever selection changes.
+  useEffect(() => {
+    if (!selectedPersonaId) return;
+    joinPersonaRoom(selectedPersonaId);
+    fetchMessageHistory(selectedPersonaId);
+  }, [selectedPersonaId, fetchMessageHistory]);
+
+  // Auto-scroll to the latest message.
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
@@ -41,7 +59,7 @@ export function ChatBox({ persona }: any) {
     });
   }, [messages]);
 
-  // Auto-grow the textarea as the user types
+  // Auto-grow the textarea as the user types.
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -49,32 +67,34 @@ export function ChatBox({ persona }: any) {
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [input]);
 
+  // The assistant's reply arrives over the socket (which already writes it
+  // into the store) — clear the typing indicator once it lands.
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (last?.role === "assistant") setIsSending(false);
+  }, [messages]);
+
+  // All hooks are called above this line, unconditionally, before any
+  // early return — required by the rules of hooks.
+  if (!hasHydrated) return null; // or a skeleton
+
+  const persona = getPersona(selectedPersonaId);
+
   const handleSend = () => {
     const trimmed = input.trim();
-    if (!trimmed || isSending) return;
+    if (!trimmed || isSending || !selectedPersonaId) return;
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
       content: trimmed,
+      createdAt: Date.now(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    addMessage(selectedPersonaId, userMessage);
+    sendSocketMessage(selectedPersonaId, trimmed);
     setInput("");
     setIsSending(true);
-
-    // Replace with your actual API call
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: "This is a placeholder reply — wire this up to your API.",
-        },
-      ]);
-      setIsSending(false);
-    }, 600);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -108,10 +128,19 @@ export function ChatBox({ persona }: any) {
         ref={scrollRef}
         className="flex-1 space-y-4 overflow-y-auto px-6 py-6"
       >
-        {messages.length === 0 ? (
+        {isHistoryLoading ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-zinc-500">
+            <Sparkles className="h-6 w-6 animate-pulse" />
+            <p className="text-sm">Loading conversation…</p>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-zinc-500">
             <Sparkles className="h-6 w-6" />
-            <p className="text-sm">Start the conversation whenever you're ready.</p>
+            <p className="text-sm">
+              {persona
+                ? "Start the conversation whenever you're ready."
+                : "Pick a persona from the sidebar to get started."}
+            </p>
           </div>
         ) : (
           messages.map((message) => (
@@ -156,12 +185,13 @@ export function ChatBox({ persona }: any) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             rows={1}
-            placeholder="Message..."
-            className="max-h-40 flex-1 resize-none bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none"
+            placeholder={persona ? "Message..." : "Select a persona first..."}
+            disabled={!persona}
+            className="max-h-40 flex-1 resize-none bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none disabled:cursor-not-allowed"
           />
           <Button
             size="icon"
-            disabled={!input.trim() || isSending}
+            disabled={!input.trim() || isSending || !persona}
             onClick={handleSend}
             className="h-8 w-8 shrink-0 rounded-full bg-white text-black transition-transform duration-200 hover:scale-105 hover:bg-zinc-200 disabled:opacity-40"
           >
