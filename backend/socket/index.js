@@ -1,8 +1,8 @@
 import { Server } from "socket.io";
-import { chatEvents } from "./chat";
-import { socketAuthMiddleware } from "../middlewares/socket-auth";
+import { chatEvents } from "./chat.js";
+import { socketAuthMiddleware } from "../middlewares/socket-auth.js";
 
-export function initializeSocket(io: Server) {
+export function initializeSocket(io) {
   
   io.use(socketAuthMiddleware);
 

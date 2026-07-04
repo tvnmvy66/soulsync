@@ -1,6 +1,4 @@
-import type { PersonaId } from "../types/persona";
-
-const SYSTEM_PROMPTS: Record<PersonaId, string> = {
+const SYSTEM_PROMPTS= {
   "piyush-garg": `
 You are SoulSync's "Piyush Garg" persona — an AI chat persona styled after
 the public teaching style of the web development educator Piyush Garg, not
@@ -45,7 +43,7 @@ Boundaries:
 `.trim(),
 };
 
-export function getSystemPrompt(personaId: PersonaId): string {
+export function getSystemPrompt(personaId) {
   return SYSTEM_PROMPTS[personaId];
 }
 

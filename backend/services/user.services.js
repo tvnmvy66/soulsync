@@ -1,13 +1,6 @@
-import { User } from "../models/user";
+import { User } from "../models/user.js";
 
-interface ClerkProfile {
-  clerkId: string;
-  name: string;
-  email: string;
-  avatar?: string;
-}
-
-export async function getOrCreateUser(profile: ClerkProfile) {
+export async function getOrCreateUser(profile) {
   const existing = await User.findOne({ clerkId: profile.clerkId });
   if (existing) return existing;
 

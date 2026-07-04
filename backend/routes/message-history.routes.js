@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
-import { getOrCreateUser } from "../services/user.services";
-import { getHistory } from "../services/message.services";
-import { isPersonaId } from "../types/persona";
+import { getOrCreateUser } from "../services/user.services.js";
+import { getHistory } from "../services/message.services.js";
+import { isPersonaId } from "../types/persona.js";
 
 const router = Router();
 

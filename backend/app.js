@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
-import { clerkAuth } from "./middlewares/require-auth";
-import messageHistoryRouter from "./routes/message-history.routes";
+import { clerkAuth } from "./middlewares/require-auth.js";
+import messageHistoryRouter from "./routes/message-history.routes.js";
 
 const app = express();
 

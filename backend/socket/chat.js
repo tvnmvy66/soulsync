@@ -1,16 +1,10 @@
-import type { Socket } from "socket.io";
 import { clerkClient } from "@clerk/express";
-import { getOrCreateUser } from "../services/user.services";
-import { appendMessage, getHistory } from "../services/message.services";
-import { generateResponse } from "../services/responses.services";
-import { isPersonaId } from "../types/persona";
-import type {
-  IncomingChatPayload,
-  JoinPayload,
-  OutgoingChatPayload,
-} from "../types/chat";
+import { getOrCreateUser } from "../services/user.services.js";
+import { appendMessage, getHistory } from "../services/message.services.js";
+import { generateResponse } from "../services/responses.services.js";
+import { isPersonaId } from "../types/persona.js";
 
-async function resolveUser(socket: Socket) {
+async function resolveUser(socket) {
   if (socket.data.user) return socket.data.user;
 
   const clerkUser = await clerkClient.users.getUser(socket.data.clerkId);
@@ -27,22 +21,22 @@ async function resolveUser(socket: Socket) {
   return user;
 }
 
-function roomFor(clerkId: string, personaId: string) {
+function roomFor(clerkId, personaId) {
   return `${clerkId}:${personaId}`;
 }
 
-function emitToRoom(socket: Socket, room: string, payload: OutgoingChatPayload) {
+function emitToRoom(socket, room, payload) {
   socket.nsp.to(room).emit("message", payload);
 }
 
-export function chatEvents(socket: Socket) {
+export function chatEvents(socket) {
   
-  socket.on("join", ({ personaId }: JoinPayload) => {
+  socket.on("join", ({ personaId }) => {
     if (!isPersonaId(personaId)) return;
     socket.join(roomFor(socket.data.clerkId, personaId));
   });
 
-  socket.on("message", async (payload: IncomingChatPayload) => {
+  socket.on("message", async (payload) => {
     const { personaId, content } = payload ?? {};
 
     if (!isPersonaId(personaId) || !content?.trim()) {
@@ -66,7 +60,7 @@ export function chatEvents(socket: Socket) {
 
       const assistantMessage = await appendMessage(user._id, personaId, "assistant", replyContent);
       emitToRoom(socket, room, { personaId, message: assistantMessage });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error generating response:", error.message);
       socket.emit(
         "chat-error",

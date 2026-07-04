@@ -1,15 +1,13 @@
-import openaiClient from "../libs/openai";
-import { getSystemPrompt } from "../prompts/system-prompt";
-import type { PersonaId } from "../types/persona";
-import type { ChatMessage } from "../types/chat";
+import openaiClient from "../libs/openai.js";
+import { getSystemPrompt } from "../prompts/system-prompt.js";
 
 
 const MODEL = "gpt-4o-mini";
 
 export async function generateResponse(
-  personaId: PersonaId,
-  history: ChatMessage[]
-): Promise<string> {
+  personaId,
+  history
+) {
   const response = await openaiClient.chat.completions.create({
     model: MODEL,
     messages: [

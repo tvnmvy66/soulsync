@@ -44,5 +44,4 @@ const messageSchema = new mongoose.Schema(
 
 messageSchema.index({ user: 1, persona: 1 }, { unique: true });
 
-export type MessageDoc = mongoose.InferSchemaType<typeof messageSchema>;
 export const Message = mongoose.model("Message", messageSchema);
