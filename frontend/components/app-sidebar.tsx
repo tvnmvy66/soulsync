@@ -50,7 +50,7 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r border-[#222d34] bg-[#111b21] text-zinc-200">
       {/* Header */}
-      <SidebarHeader className="bg-[#1f2c34] p-4 pb-3">
+      <SidebarHeader className="bg-[#111b21] p-4 pb-3">
         <Link href="/" className="flex items-center gap-2.5">
           <Image
             src="/logo.png"
