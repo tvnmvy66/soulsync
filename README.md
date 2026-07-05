@@ -48,7 +48,7 @@ OPENAI_API_KEY=sk-proj-xxxxxxxxxxxx
 npm install
 
 # Development
-npm test
+npm run dev
 
 # Production-style (matches Render deploy)
 npm start
