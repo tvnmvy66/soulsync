@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, Sparkles } from "lucide-react";
+import { Send, Check, CheckCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatStore, type Message } from "@/stores/chat-store";
 import { getPersona } from "@/lib/personas";
@@ -20,6 +19,14 @@ import {
 // literal every call makes Zustand think the snapshot changed every time,
 // which is what caused the infinite update loop.
 const EMPTY_MESSAGES: Message[] = [];
+
+function formatTime(ts: number) {
+  return new Date(ts).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
 
 // No props needed — the selected persona lives in the Zustand store, so
 // this component is always in sync with the sidebar without prop drilling.
@@ -116,37 +123,43 @@ export function ChatBox() {
   };
 
   return (
-    <div className="flex h-full min-w-0 flex-col bg-[#232221] text-zinc-200">
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b border-white/10 px-6 py-4">
+    <div className="flex h-full min-w-0 flex-col bg-[#0b141a] text-zinc-200">
+      {/* Header — avatar + name only, no video/search/menu icons */}
+      <div className="flex items-center gap-3 bg-[#1f2c34] px-4 py-2.5 shadow-sm">
         {persona ? (
           <>
-            <Avatar className="h-8 w-8 ring-1 ring-white/10">
+            <Avatar className="h-10 w-10">
               <AvatarImage src={persona.avatar} className="object-cover" />
               <AvatarFallback className="bg-zinc-700 text-xs text-white">
                 AI
               </AvatarFallback>
             </Avatar>
-            <p className="text-sm font-medium text-white">{persona.name}</p>
+            <p className="text-[15px] font-medium text-white">{persona.name}</p>
           </>
         ) : (
-          <p className="text-sm font-medium text-zinc-400">Select a persona to start chatting</p>
+          <p className="text-[15px] font-medium text-zinc-400">
+            Select a persona to start chatting
+          </p>
         )}
       </div>
 
-      {/* Messages */}
+      {/* Messages — WhatsApp-style doodle background + bubble tails */}
       <div
         ref={scrollRef}
-        className="flex-1 space-y-4 overflow-y-auto px-6 py-6"
+        className="relative flex-1 space-y-1.5 overflow-y-auto px-4 py-4 sm:px-10 md:px-16"
+        style={{
+          backgroundColor: "#0b141a",
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.035' stroke-width='1.2'%3E%3Ccircle cx='20' cy='20' r='10'/%3E%3Cpath d='M55 15 L65 25 L55 35 L45 25 Z'/%3E%3Cpath d='M80 60 q10 -10 20 0 t0 20'/%3E%3Cpath d='M10 70 l10 15 h-20 z'/%3E%3Ccircle cx='75' cy='15' r='5'/%3E%3C/g%3E%3C/svg%3E\")",
+          backgroundRepeat: "repeat",
+        }}
       >
         {isHistoryLoading ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-zinc-500">
-            <Sparkles className="h-6 w-6 animate-pulse" />
             <p className="text-sm">Loading conversation…</p>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-zinc-500">
-            <Sparkles className="h-6 w-6" />
             <p className="text-sm">
               {persona
                 ? "Start the conversation whenever you're ready."
@@ -154,31 +167,39 @@ export function ChatBox() {
             </p>
           </div>
         ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={cn(
-                "flex w-full",
-                message.role === "user" ? "justify-end" : "justify-start"
-              )}
-            >
+          messages.map((message) => {
+            const isUser = message.role === "user";
+            return (
               <div
-                className={cn(
-                  "max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-                  message.role === "user"
-                    ? "bg-white text-black"
-                    : "bg-white/10 text-zinc-100"
-                )}
+                key={message.id}
+                className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}
               >
-                {message.content}
+                <div
+                  className={cn(
+                    "relative max-w-[75%] rounded-lg px-2.5 pb-1.5 pt-1.5 text-[14.5px] leading-[1.35] shadow-sm",
+                    isUser
+                      ? "rounded-tr-none bg-[#005c4b] text-zinc-50"
+                      : "rounded-tl-none bg-[#1f2c34] text-zinc-50"
+                  )}
+                >
+                  <span className="whitespace-pre-wrap wrap-break-words">{message.content}</span>
+                  <span
+                    className={cn(
+                      "float-right ml-2 mt-1 flex translate-y-1 items-center gap-1 text-[11px] text-zinc-300/70",
+                    )}
+                  >
+                    {formatTime(message.createdAt)}
+                    {isUser && <CheckCheck className="h-3.5 w-3.5 text-[#53bdeb]" />}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
 
         {isSending && (
           <div className="flex justify-start">
-            <div className="flex items-center gap-1 rounded-2xl bg-white/10 px-4 py-3">
+            <div className="flex items-center gap-1 rounded-lg rounded-tl-none bg-[#1f2c34] px-3 py-2.5 shadow-sm">
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-400 [animation-delay:-0.3s]" />
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-400 [animation-delay:-0.15s]" />
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-400" />
@@ -187,28 +208,28 @@ export function ChatBox() {
         )}
       </div>
 
-      {/* Input */}
-      <div className="border-t border-white/10 px-6 py-4">
-        <div className="flex items-end gap-3 rounded-2xl border border-white/10 bg-[#1b1a19] px-4 py-3 transition-colors duration-200 focus-within:border-white/30">
+      {/* Input — just a textarea and a send button, nothing else */}
+      <div className="flex items-end gap-2 bg-[#1f2c34] px-3 py-2.5">
+        <div className="flex flex-1 items-center rounded-3xl bg-[#2a3942] px-4 py-2">
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             rows={1}
-            placeholder={persona ? "Message..." : "Select a persona first..."}
+            placeholder={persona ? "Type a message" : "Select a persona first..."}
             disabled={!persona}
-            className="max-h-40 flex-1 resize-none bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none disabled:cursor-not-allowed"
+            className="max-h-40 w-full resize-none bg-transparent text-[15px] text-zinc-100 placeholder:text-zinc-400 focus:outline-none disabled:cursor-not-allowed"
           />
-          <Button
-            size="icon"
-            disabled={!input.trim() || isSending || !persona}
-            onClick={handleSend}
-            className="h-8 w-8 shrink-0 rounded-full bg-white text-black transition-transform duration-200 hover:scale-105 hover:bg-zinc-200 disabled:opacity-40"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
         </div>
+        <button
+          type="button"
+          disabled={!input.trim() || isSending || !persona}
+          onClick={handleSend}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#00a884] text-white transition-transform duration-150 hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Send className="h-5 w-5" />
+        </button>
       </div>
     </div>
   );
