@@ -56,7 +56,10 @@ export function ChatBox() {
   useEffect(() => {
     if (!selectedPersonaId) return;
     joinPersonaRoom(selectedPersonaId);
-    fetchMessageHistory(selectedPersonaId);
+    (async () => {
+      const token = await getToken();
+      fetchMessageHistory(selectedPersonaId, token);
+    })();
   }, [selectedPersonaId, fetchMessageHistory]);
 
   // Auto-scroll to the latest message.

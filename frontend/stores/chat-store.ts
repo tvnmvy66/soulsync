@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { PersonaId } from "@/lib/personas";
+// ❌ removed: import { useAuth } from "@clerk/nextjs";
+// ❌ removed: const { getToken } = useAuth();
 
 export interface Message {
   id: string;
@@ -24,7 +26,8 @@ interface ChatState {
   setHasHydrated: (state: boolean) => void;
   setHistoryLoading: (loading: boolean) => void;
   markHistoryLoaded: (personaId: PersonaId) => void;
-  fetchMessageHistory: (personaId: PersonaId) => Promise<void>;
+  // 👇 now takes the token as a param instead of calling getToken() itself
+  fetchMessageHistory: (personaId: PersonaId, token: string | null) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -61,17 +64,19 @@ export const useChatStore = create<ChatState>()(
           historyLoadedFor: { ...state.historyLoadedFor, [personaId]: true },
         })),
 
-      // Fetches chat history for a persona from the backend. Safe to call
-      // repeatedly — it no-ops once a persona's history has been loaded,
-      // since new messages arrive live over the socket after that.
-      fetchMessageHistory: async (personaId) => {
+      fetchMessageHistory: async (personaId, token) => {
         if (get().historyLoadedFor[personaId]) return;
 
         get().setHistoryLoading(true);
         try {
           const res = await fetch(
             `${process.env.NEXT_PUBLIC_API_URL}/message-history?personaId=${personaId}`,
-            { credentials: "include" }
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              credentials: "include",
+            }
           );
 
           if (!res.ok) {
@@ -91,9 +96,6 @@ export const useChatStore = create<ChatState>()(
     {
       name: "chat-storage",
       storage: createJSONStorage(() => localStorage),
-      // Only remember which persona was selected. Message history always
-      // comes fresh from /message-history + the socket, never from
-      // localStorage, so it can't go stale or drift from the backend.
       partialize: (state) => ({ selectedPersonaId: state.selectedPersonaId }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
